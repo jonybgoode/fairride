@@ -388,10 +388,11 @@
 
   <!-- Backend origin selection + socket.io client loading:
        1. window.FAIRRIDE_BACKEND_URL (set before this script) always wins,
-          e.g. "https://fairride-backend.onrender.com"
+          e.g. "https://fairride-backend-4rsc.onrender.com"
        2. Local development (localhost, 127.0.0.1, or file://): localhost:3000
-       3. Production: same origin ("") — netlify.toml proxies /api and
-          /socket.io to the backend, so relative URLs just work. -->
+       3. Production: the live Render backend. The page connects to it
+          directly (client script, REST and WebSocket) — nothing is
+          proxied in front of it. -->
   <script>
     "use strict";
     var FAIRRIDE_IS_DEV =
@@ -400,7 +401,7 @@
       location.hostname === "127.0.0.1";
     var BACKEND =
       window.FAIRRIDE_BACKEND_URL ||
-      (FAIRRIDE_IS_DEV ? "http://localhost:3000" : "");
+      (FAIRRIDE_IS_DEV ? "http://localhost:3000" : "https://fairride-backend-4rsc.onrender.com");
     window.FAIRRIDE_API_BASE = BACKEND;
     if (typeof io === "undefined") {
       // Load socket.io's browser client from the backend origin.

@@ -97,11 +97,12 @@ Requires **Node.js 18+** (Python 3 is optional, for serving the frontend).
 
 The demo is split into a static frontend (Netlify) and a Node backend (Render):
 
-- **Backend:** `backend/render.yaml` defines a free Render web service (root directory `backend`, build `npm install`, start `node server.js`). After deploying, note the service URL, e.g. `https://fairride-backend.onrender.com`.
-- **Frontend:** `netlify.toml` and `_redirects` proxy `/api/*` and `/socket.io/*` from the Netlify site to the backend. Update the placeholder backend URL in those files, then drag-and-drop the repository folder into <https://app.netlify.com/drop>.
-- **Alternative:** point the frontend directly at the backend by setting `window.FAIRRIDE_BACKEND_URL = "https://your-backend.onrender.com"` in `index.html` before the main script.
+- **Backend:** `backend/render.yaml` defines a free Render web service (root directory `backend`, build `npm install`, start `node server.js`). After deploying, copy the service URL from the Render dashboard — Render adds a random suffix to the URL if the name is already taken.
+- **Frontend:** drag-and-drop the repository folder into <https://app.netlify.com/drop>, or connect the site to the GitHub repository to deploy on every push.
 
-The frontend picks its backend origin automatically: `window.FAIRRIDE_BACKEND_URL` if set, `http://localhost:3000` during local development, and same-origin relative URLs in production.
+The frontend connects **directly** to the Render backend in production: the Socket.io client script, the REST API and the WebSocket all go to `https://fairride-backend-4rsc.onrender.com`, with no proxy in between. (The backend accepts cross-origin requests, so any frontend domain works.) It picks the backend origin automatically: `window.FAIRRIDE_BACKEND_URL` if set, `http://localhost:3000` during local development, and the Render URL everywhere else. To use a different backend, change the URL in `index.html`.
+
+On Render's free plan the backend sleeps after 15 minutes without traffic, so the first visit after a quiet period pauses while it wakes up.
 
 ## Realtime Events
 
