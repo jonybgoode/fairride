@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Local environment files — never commit secrets
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Editor / IDE folders
+.vscode/
+.idea/

@@ -1,0 +1,27 @@
+# Render.com deployment spec for the FairRide backend.
+#
+# Manual path (recommended for this repo layout):
+#   1. Render dashboard -> New + -> Web Service
+#   2. Connect this GitHub repository
+#   3. Root Directory: backend
+#      Build Command:  npm install
+#      Start Command:  node server.js
+#      Instance Type:  Free
+#   4. The service will live at https://<service-name>.onrender.com
+#
+# Blueprint path: Render reads render.yaml from the repo root, so if this
+# file stays in backend/, use the manual path above — or move this file to
+# the repository root and uncomment `rootDir` below.
+
+services:
+  - type: web
+    name: fairride-backend        # becomes https://fairride-backend.onrender.com
+    runtime: node
+    plan: free
+    # rootDir: backend            # only needed if this file is at repo root
+    buildCommand: npm install
+    startCommand: node server.js  # server binds to $PORT automatically
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

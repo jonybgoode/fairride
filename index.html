@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>FairRide — P2P Ride Matching Demo</title>
+  <style>
+    /* ---------- Design tokens ---------- */
+    :root {
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --text: #16181d;
+      --muted: #5b616e;
+      --border: #e3e5ea;
+      --green: #0b6b3a;
+      --green-bg: #e6f6ec;
+      --green-border: #b7e2c6;
+      --blue: #1c6ef2;
+      --blue-bg: #e8f1fd;
+      --blue-border: #bcd4f5;
+      --blue-text: #14406e;
+      --surge-bg: #fdecea;
+      --error: #b3261e;
+      --radius: 14px;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 14px rgba(0, 0, 0, 0.05);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .container { max-width: 720px; margin: 0 auto; padding: 16px; }
+
+    .visually-hidden {
+      position: absolute; width: 1px; height: 1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+    }
+
+    /* ---------- Header ---------- */
+    .site-header { background: var(--card); border-bottom: 1px solid var(--border); }
+    .site-header .container {
+      display: flex; align-items: center; gap: 10px; padding-top: 14px; padding-bottom: 14px;
+    }
+    .app-name { font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--green); }
+    .badge-demo {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+      color: #6b2fbf; background: #f1e9fd; border: 1px solid #ddc9f8;
+      border-radius: 999px; padding: 2px 10px;
+    }
+
+    /* ---------- Cards ---------- */
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 18px; margin-top: 16px;
+    }
+
+    /* ---------- Role selector ---------- */
+    .role-selector { display: flex; gap: 10px; }
+    .role-btn {
+      flex: 1; font-family: inherit; font-size: 1rem; font-weight: 700;
+      padding: 14px 10px; border-radius: 12px; cursor: pointer;
+      border: 1.5px solid var(--border); background: #fff; color: var(--muted);
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .role-btn[aria-pressed="true"] {
+      background: var(--text); border-color: var(--text); color: #fff;
+    }
+    .role-btn:focus-visible { outline: 2.5px solid #111; outline-offset: 2px; }
+
+    /* ---------- Form ---------- */
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-weight: 600; font-size: 0.875rem; margin-bottom: 6px; }
+    .field input {
+      width: 100%; padding: 11px 12px; font-size: 1rem; font-family: inherit;
+      color: var(--text); background: #fff; border: 1.5px solid var(--border); border-radius: 10px;
+    }
+    .field input:focus { outline: 2.5px solid #111; outline-offset: 1px; border-color: #111; }
+    .field input.invalid { border-color: var(--error); }
+    .field .error-text { display: none; color: var(--error); font-size: 0.8125rem; margin-top: 4px; }
+    .field.has-error .error-text { display: block; }
+
+    .btn {
+      font-size: 0.95rem; font-weight: 600; font-family: inherit;
+      border-radius: 10px; padding: 11px 18px; cursor: pointer;
+      border: 1.5px solid transparent;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:focus-visible { outline: 2.5px solid #111; outline-offset: 2px; }
+    .btn-primary { flex: 1 1 auto; background: var(--text); color: #fff; width: 100%; }
+    .btn-primary:hover { background: #2a2a2a; }
+    .btn-primary:disabled { background: #777; cursor: wait; }
+    .btn-green { background: var(--green); color: #fff; width: 100%; }
+    .btn-green:hover { background: #0e8749; }
+    .btn-secondary { background: #fff; color: var(--text); border-color: var(--border); }
+    .btn-secondary:hover { background: #f0f1f3; }
+
+    .form-error-summary {
+      display: none; margin-top: 12px; padding: 10px 12px; border-radius: 10px;
+      background: var(--surge-bg); color: var(--error);
+      font-size: 0.875rem; font-weight: 500;
+    }
+    .form-error-summary.visible { display: block; }
+
+    /* ---------- Fare result (green = savings) ---------- */
+    .fare-result { border: 1.5px solid var(--green-border); background: var(--green-bg);
+      border-radius: 12px; padding: 16px; margin-top: 14px; }
+    .fare-route { font-weight: 600; font-size: 0.95rem; margin-bottom: 8px; overflow-wrap: anywhere; }
+    .fare-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .fare-price { font-size: 2.2rem; font-weight: 800; color: var(--green); letter-spacing: -0.02em; }
+    .fare-baseline { color: var(--muted); text-decoration: line-through; font-size: 0.95rem; }
+    .pill-save {
+      font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 3px 10px;
+      background: var(--green); color: #fff;
+    }
+    .fare-miles { color: var(--muted); font-size: 0.8125rem; margin-top: 2px; }
+
+    .fare-rows { margin-top: 12px; }
+    .fare-row {
+      display: flex; justify-content: space-between; gap: 10px;
+      padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 0.95rem;
+    }
+    .fare-row:last-child { border-bottom: none; }
+    .fare-row .row-driver { color: var(--green); font-weight: 700; }
+    .fare-row strong { font-weight: 700; }
+
+    /* ---------- Searching (rider) ---------- */
+    .searching { text-align: center; padding: 26px 10px; }
+    .radar { position: relative; width: 90px; height: 90px; margin: 0 auto 14px; }
+    .radar span {
+      position: absolute; inset: 0; border: 2px solid var(--blue);
+      border-radius: 50%; opacity: 0; animation: pulse 2s ease-out infinite;
+    }
+    .radar span:nth-child(2) { animation-delay: 0.66s; }
+    .radar span:nth-child(3) { animation-delay: 1.33s; }
+    .radar .dot {
+      position: absolute; top: 50%; left: 50%; width: 14px; height: 14px;
+      margin: -7px 0 0 -7px; border-radius: 50%; background: var(--blue);
+      border: none; animation: none; opacity: 1;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.25); opacity: 0.9; }
+      100% { transform: scale(1); opacity: 0; }
+    }
+    .searching-title { font-weight: 700; margin: 0 0 4px; }
+    .searching-sub { color: var(--muted); font-size: 0.875rem; margin: 0; }
+
+    /* ---------- Ride in progress (blue = matching/map) ---------- */
+    .ride-progress {
+      border: 1.5px solid var(--blue-border); background: var(--blue-bg);
+      border-radius: 12px; padding: 16px; margin-top: 14px;
+    }
+    .ride-heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+    .pill-live {
+      font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 3px 10px;
+      background: var(--blue); color: #fff;
+    }
+    .ride-driver { font-weight: 700; font-size: 1.05rem; }
+    .ride-route { color: var(--blue-text); font-size: 0.875rem; margin: 4px 0 10px; overflow-wrap: anywhere; }
+
+    .track { position: relative; height: 8px; background: #cfe0f5; border-radius: 999px; margin: 18px 0 6px; }
+    .track-fill {
+      position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+      background: var(--blue); border-radius: 999px; transition: width 1.6s linear;
+    }
+    .track-marker {
+      position: absolute; top: -6px; width: 20px; height: 20px; margin-left: -10px;
+      border-radius: 50%; background: #fff; border: 3px solid var(--blue);
+      left: 0%; transition: left 1.6s linear;
+    }
+    .track-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.75rem; }
+    .live-coords { color: var(--blue-text); font-size: 0.8125rem; margin: 8px 0 0; font-variant-numeric: tabular-nums; }
+
+    /* ---------- Driver panel ---------- */
+    .toggle-online {
+      width: 100%; font-size: 0.95rem; font-weight: 700; padding: 12px 16px;
+      border-radius: 10px; border: 1.5px solid var(--border); background: #fff;
+      color: var(--muted); cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .toggle-online.online { background: var(--green); border-color: var(--green); color: #fff; }
+    .toggle-online:focus-visible { outline: 2.5px solid #111; outline-offset: 2px; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #b9bec7; }
+    .toggle-online.online .status-dot { background: #7dffb0; animation: blink 1.6s ease infinite; }
+    @keyframes blink { 50% { opacity: 0.35; } }
+
+    .driver-status { text-align: center; color: var(--muted); font-size: 0.875rem; margin: 14px 0 0; }
+    .driver-count { font-weight: 700; color: var(--blue-text); }
+
+    .gps-note { display: flex; align-items: center; gap: 8px; color: var(--blue-text);
+      font-size: 0.8125rem; margin-top: 10px; }
+    .gps-note .status-dot { background: var(--blue); animation: blink 1.6s ease infinite; }
+
+    /* ---------- Modal ---------- */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(10, 14, 20, 0.55);
+      display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50;
+    }
+    .modal-backdrop[hidden] { display: none; }
+    .modal {
+      background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+      max-width: 420px; width: 100%; padding: 20px;
+    }
+    .modal h3 { margin: 0 0 6px; font-size: 1.15rem; }
+    .modal .modal-route { color: var(--muted); font-size: 0.9rem; margin: 0 0 12px; overflow-wrap: anywhere; }
+    .modal .modal-fare { font-size: 1.6rem; font-weight: 800; color: var(--green); }
+    .modal .modal-earnings { color: var(--green); font-weight: 700; font-size: 0.9rem; margin-bottom: 16px; }
+    .modal-actions { display: flex; gap: 10px; }
+    .modal-actions .btn { flex: 1; }
+
+    /* ---------- Notices + toast ---------- */
+    .results-error {
+      background: var(--surge-bg); border: 1px solid #f2b8b5; color: #7a1a14;
+      border-radius: 10px; padding: 14px; margin-top: 14px; font-size: 0.9rem;
+    }
+    .toast {
+      position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+      background: var(--text); color: #fff; border-radius: 999px; padding: 10px 18px;
+      font-size: 0.875rem; box-shadow: var(--shadow); z-index: 60;
+      max-width: calc(100vw - 32px); text-align: center;
+    }
+    .toast[hidden] { display: none; }
+
+    /* ---------- Footer ---------- */
+    .site-footer {
+      margin-top: 28px; padding: 20px 16px 32px; color: var(--muted);
+      font-size: 0.8125rem; text-align: center;
+    }
+    .site-footer strong { color: var(--text); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .radar span, .toggle-online.online .status-dot, .gps-note .status-dot { animation: none; }
+      .track-fill, .track-marker { transition: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container">
+      <h1 class="app-name">FairRide</h1>
+      <span class="badge-demo">Demo</span>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Role selector -->
+    <section class="card" aria-label="Choose your role">
+      <div class="role-selector">
+        <button type="button" class="role-btn" id="role-rider" aria-pressed="true">I am a Rider</button>
+        <button type="button" class="role-btn" id="role-driver" aria-pressed="false">I am a Driver</button>
+      </div>
+    </section>
+
+    <!-- Rider panel -->
+    <section class="card" id="rider-panel" aria-labelledby="rider-heading">
+      <h2 id="rider-heading" class="visually-hidden">Rider tools</h2>
+
+      <form id="rider-form" novalidate>
+        <div class="field" id="field-pickup">
+          <label for="pickup">Pickup address</label>
+          <input id="pickup" name="pickup" type="text" autocomplete="street-address"
+                 placeholder="e.g. 350 5th Ave, New York, NY" />
+          <p class="error-text" id="error-pickup"></p>
+        </div>
+        <div class="field" id="field-dropoff">
+          <label for="dropoff">Dropoff address</label>
+          <input id="dropoff" name="dropoff" type="text" autocomplete="street-address"
+                 placeholder="e.g. Grand Central Terminal, NY" />
+          <p class="error-text" id="error-dropoff"></p>
+        </div>
+        <button type="submit" class="btn btn-primary" id="get-fare-btn">Get Fair Fare</button>
+        <div class="form-error-summary" id="form-error-summary" role="alert"></div>
+      </form>
+
+      <!-- Fare quote -->
+      <div class="fare-result" id="fare-result" hidden aria-live="polite">
+        <p class="fare-route" id="fare-route"></p>
+        <div class="fare-top">
+          <span class="fare-price" id="fare-price"></span>
+          <span class="fare-baseline" id="fare-baseline"></span>
+          <span class="pill-save" id="fare-save"></span>
+        </div>
+        <p class="fare-miles" id="fare-miles"></p>
+        <div class="fare-rows" id="fare-rows"></div>
+        <div style="margin-top: 14px;">
+          <button type="button" class="btn btn-green" id="find-driver">Find a Driver</button>
+        </div>
+      </div>
+
+      <!-- Searching -->
+      <div class="searching" id="searching" hidden>
+        <div class="radar" aria-hidden="true">
+          <span></span><span></span><span></span><span class="dot"></span>
+        </div>
+        <p class="searching-title">Searching for nearby drivers…</p>
+        <p class="searching-sub" id="searching-sub">Waiting for a driver to accept.</p>
+      </div>
+
+      <!-- Ride in progress (rider view) -->
+      <div class="ride-progress" id="rider-ride" hidden aria-live="polite">
+        <div class="ride-heading">
+          <span class="ride-driver" id="rider-driver-name"></span>
+          <span class="pill-live">Ride in progress</span>
+        </div>
+        <p class="ride-route" id="rider-ride-route"></p>
+        <div class="fare-rows" id="rider-ride-rows"></div>
+        <div class="track" aria-hidden="true">
+          <div class="track-fill" id="rider-track-fill"></div>
+          <div class="track-marker" id="rider-track-marker"></div>
+        </div>
+        <div class="track-labels"><span>Pickup</span><span>Dropoff</span></div>
+        <p class="live-coords" id="rider-live-coords">Waiting for driver GPS…</p>
+        <div style="margin-top: 14px;">
+          <button type="button" class="btn btn-secondary" id="end-ride-rider">End Ride (demo)</button>
+        </div>
+      </div>
+
+      <div class="results-error" id="rider-error" role="alert" hidden></div>
+    </section>
+
+    <!-- Driver panel -->
+    <section class="card" id="driver-panel" hidden aria-labelledby="driver-heading">
+      <h2 id="driver-heading" class="visually-hidden">Driver tools</h2>
+
+      <div class="field">
+        <label for="driver-name">Display name</label>
+        <input id="driver-name" type="text" value="Demo Driver" maxlength="40" />
+      </div>
+
+      <button type="button" class="toggle-online" id="go-online">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="go-online-label">Go Online</span>
+      </button>
+      <p class="driver-status" id="driver-status">Offline — go online to receive ride requests.</p>
+      <p class="driver-status"><span class="driver-count" id="driver-count">0</span> drivers online</p>
+
+      <!-- Ride in progress (driver view) -->
+      <div class="ride-progress" id="driver-ride" hidden aria-live="polite">
+        <div class="ride-heading">
+          <span class="ride-driver" id="driver-ride-title">Ride in progress</span>
+          <span class="pill-live">You're driving</span>
+        </div>
+        <p class="ride-route" id="driver-ride-route"></p>
+        <div class="fare-rows" id="driver-ride-rows"></div>
+        <p class="gps-note">
+          <span class="status-dot" aria-hidden="true"></span>
+          Simulated GPS is streaming to your rider every 2 seconds.
+        </p>
+        <div style="margin-top: 14px;">
+          <button type="button" class="btn btn-secondary" id="end-ride-driver">End Ride (demo)</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Driver: incoming ride request modal -->
+    <div class="modal-backdrop" id="request-modal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h3 id="modal-title">New ride request</h3>
+        <p class="modal-route" id="modal-route"></p>
+        <p class="modal-fare" id="modal-fare"></p>
+        <p class="modal-earnings" id="modal-earnings"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="decline-ride">Decline</button>
+          <button type="button" class="btn btn-green" id="accept-ride">Accept Ride</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="site-footer">
+    <p><strong>FairRide is a peer-to-peer matching service. Drivers must maintain their own commercial insurance.</strong></p>
+    <p>Fares are simulated and no real payments are processed. This is an unofficial demo, not affiliated with any rideshare company.</p>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Backend origin selection + socket.io client loading:
+       1. window.FAIRRIDE_BACKEND_URL (set before this script) always wins,
+          e.g. "https://fairride-backend.onrender.com"
+       2. Local development (localhost, 127.0.0.1, or file://): localhost:3000
+       3. Production: same origin ("") — netlify.toml proxies /api and
+          /socket.io to the backend, so relative URLs just work. -->
+  <script>
+    "use strict";
+    var FAIRRIDE_IS_DEV =
+      location.protocol === "file:" ||
+      location.hostname === "localhost" ||
+      location.hostname === "127.0.0.1";
+    var BACKEND =
+      window.FAIRRIDE_BACKEND_URL ||
+      (FAIRRIDE_IS_DEV ? "http://localhost:3000" : "");
+    window.FAIRRIDE_API_BASE = BACKEND;
+    if (typeof io === "undefined") {
+      // Load socket.io's browser client from the backend origin.
+      // document.write during parsing is synchronous, so the script below
+      // is guaranteed to see a loaded client (or hit its typeof check).
+      document.write(
+        '<script src="' + BACKEND + '/socket.io/socket.io.js"><\/script>'
+      );
+    }
+  </script>
+  <script>
+    "use strict";
+
+    /* =====================================================================
+       FairRide frontend — P2P ride matching demo.
+       Talks to the Express/socket.io backend (origin selected above).
+       ===================================================================== */
+
+    const API_BASE = window.FAIRRIDE_API_BASE;
+
+    if (typeof io === "undefined") {
+      document.getElementById("rider-error").hidden = false;
+      document.getElementById("rider-error").textContent =
+        "Can't load the realtime client — is the backend running? " +
+        "Start it with: cd backend && node server.js";
+      throw new Error("socket.io client not loaded — backend offline?");
+    }
+    const socket = API_BASE ? io(API_BASE) : io();
+
+    /* ---------- DOM refs ---------- */
+    const $ = (id) => document.getElementById(id);
+    const roleRiderBtn = $("role-rider");
+    const roleDriverBtn = $("role-driver");
+    const riderPanel = $("rider-panel");
+    const driverPanel = $("driver-panel");
+    const riderForm = $("rider-form");
+    const pickupInput = $("pickup");
+    const dropoffInput = $("dropoff");
+    const formErrorSummary = $("form-error-summary");
+    const getFareBtn = $("get-fare-btn");
+    const fareResult = $("fare-result");
+    const fareRoute = $("fare-route");
+    const farePrice = $("fare-price");
+    const fareBaseline = $("fare-baseline");
+    const fareSave = $("fare-save");
+    const fareMiles = $("fare-miles");
+    const fareRows = $("fare-rows");
+    const findDriverBtn = $("find-driver");
+    const searching = $("searching");
+    const searchingSub = $("searching-sub");
+    const riderRide = $("rider-ride");
+    const riderDriverName = $("rider-driver-name");
+    const riderRideRoute = $("rider-ride-route");
+    const riderRideRows = $("rider-ride-rows");
+    const riderTrackFill = $("rider-track-fill");
+    const riderTrackMarker = $("rider-track-marker");
+    const riderLiveCoords = $("rider-live-coords");
+    const endRideRiderBtn = $("end-ride-rider");
+    const riderError = $("rider-error");
+    const driverNameInput = $("driver-name");
+    const goOnlineBtn = $("go-online");
+    const goOnlineLabel = $("go-online-label");
+    const driverStatus = $("driver-status");
+    const driverCount = $("driver-count");
+    const driverRide = $("driver-ride");
+    const driverRideRoute = $("driver-ride-route");
+    const driverRideRows = $("driver-ride-rows");
+    const endRideDriverBtn = $("end-ride-driver");
+    const requestModal = $("request-modal");
+    const modalRoute = $("modal-route");
+    const modalFare = $("modal-fare");
+    const modalEarnings = $("modal-earnings");
+    const acceptRideBtn = $("accept-ride");
+    const declineRideBtn = $("decline-ride");
+    const toast = $("toast");
+
+    /* ---------- State ---------- */
+    let role = "rider";
+    let currentFare = null;      // fare breakdown from /api/fare
+    let driverOnline = false;
+    let simTimer = null;         // driver GPS simulator interval
+    let toastTimer = null;
+
+    /* ---------- Helpers ---------- */
+
+    function fmt(n) { return "$" + Number(n).toFixed(2); }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.hidden = true; }, 4000);
+    }
+
+    function setFieldError(which, message) {
+      $("field-" + which).classList.toggle("has-error", Boolean(message));
+      const input = which === "pickup" ? pickupInput : dropoffInput;
+      input.classList.toggle("invalid", Boolean(message));
+      input.setAttribute("aria-invalid", message ? "true" : "false");
+      $("error-" + which).textContent = message || "";
+    }
+
+    function clearFormErrors() {
+      setFieldError("pickup", "");
+      setFieldError("dropoff", "");
+      formErrorSummary.classList.remove("visible");
+      formErrorSummary.textContent = "";
+    }
+
+    function showRiderError(message) {
+      riderError.textContent = message;
+      riderError.hidden = false;
+    }
+
+    function breakdownRows(fare, opts = {}) {
+      const totalLabel = opts.totalLabel || "Total Fare";
+      return (
+        '<div class="fare-row"><span>' + totalLabel + "</span><strong>" + fmt(fare.fairFare) + "</strong></div>" +
+        '<div class="fare-row"><span>Driver gets 95%</span><strong class="row-driver">' + fmt(fare.driverShare) + "</strong></div>" +
+        '<div class="fare-row"><span>Platform fee 5%</span><strong>' + fmt(fare.platformFee) + "</strong></div>"
+      );
+    }
+
+    /* ---------- Role switching ---------- */
+
+    function setRole(next) {
+      role = next;
+      roleRiderBtn.setAttribute("aria-pressed", next === "rider" ? "true" : "false");
+      roleDriverBtn.setAttribute("aria-pressed", next === "driver" ? "true" : "false");
+      riderPanel.hidden = next !== "rider";
+      driverPanel.hidden = next !== "driver";
+    }
+    roleRiderBtn.addEventListener("click", () => setRole("rider"));
+    roleDriverBtn.addEventListener("click", () => setRole("driver"));
+
+    /* ---------- Rider: fare quote ---------- */
+
+    riderForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      getFare();
+    });
+
+    async function getFare() {
+      clearFormErrors();
+      riderError.hidden = true;
+
+      const pickup = pickupInput.value.trim();
+      const dropoff = dropoffInput.value.trim();
+      const errors = {};
+      if (!pickup) errors.pickup = "Enter a pickup address.";
+      if (!dropoff) errors.dropoff = "Enter a dropoff address.";
+      if (!errors.pickup && !errors.dropoff &&
+          pickup.toLowerCase() === dropoff.toLowerCase()) {
+        errors.dropoff = "Pickup and dropoff can't be the same address.";
+      }
+      if (errors.pickup || errors.dropoff) {
+        setFieldError("pickup", errors.pickup || "");
+        setFieldError("dropoff", errors.dropoff || "");
+        formErrorSummary.textContent = [errors.pickup, errors.dropoff].filter(Boolean).join(" ");
+        formErrorSummary.classList.add("visible");
+        return;
+      }
+
+      getFareBtn.disabled = true;
+      getFareBtn.textContent = "Calculating…";
+      try {
+        const res = await fetch(API_BASE + "/api/fare?pickup=" + encodeURIComponent(pickup) +
+          "&dropoff=" + encodeURIComponent(dropoff));
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Backend error (HTTP " + res.status + ").");
+        currentFare = data;
+        renderFare(data);
+      } catch (err) {
+        currentFare = null;
+        fareResult.hidden = true;
+        showRiderError(err.message === "Failed to fetch"
+          ? "Can't reach the FairRide backend. Start it with: cd RideCompare/backend && node server.js"
+          : err.message);
+      } finally {
+        getFareBtn.disabled = false;
+        getFareBtn.textContent = "Get Fair Fare";
+      }
+    }
+
+    function renderFare(fare) {
+      fareResult.hidden = false;
+      riderRide.hidden = true;
+      searching.hidden = true;
+      fareRoute.textContent = fare.pickup + " \u2192 " + fare.dropoff;
+      farePrice.textContent = fmt(fare.fairFare);
+      fareBaseline.textContent = "Standard rideshare ~" + fmt(fare.baselineTotal);
+      fareBaseline.title = "Simulated baseline price";
+      fareSave.textContent = "Save " + fmt(fare.riderSavings) + " (20%)";
+      fareMiles.textContent = "Trip distance: " + fare.miles + " mi \u00b7 simulated quote, no real charge";
+      fareRows.innerHTML = breakdownRows(fare);
+    }
+
+    /* ---------- Rider: find a driver ---------- */
+
+    findDriverBtn.addEventListener("click", () => {
+      if (!currentFare) return;
+      clearFormErrors();
+      riderError.hidden = true;
+      fareResult.hidden = true;
+      searching.hidden = false;
+      searchingSub.textContent = "Waiting for a driver to accept.";
+      socket.emit("rider_request", {
+        pickup: currentFare.pickup,
+        dropoff: currentFare.dropoff,
+        fare: currentFare
+      });
+    });
+
+    socket.on("no_drivers", (payload) => {
+      searching.hidden = true;
+      fareResult.hidden = false;
+      showRiderError(payload.message || "No drivers are online right now.");
+    });
+
+    function resetRiderView() {
+      searching.hidden = true;
+      riderRide.hidden = true;
+      if (currentFare) fareResult.hidden = false;
+    }
+
+    socket.on("ride_matched", (ride) => {
+      searching.hidden = true;
+      fareResult.hidden = true;
+      riderRide.hidden = false;
+      riderDriverName.textContent = "Driver: " + ride.driver.name;
+      riderRideRoute.textContent = ride.pickup + " \u2192 " + ride.dropoff;
+      riderRideRows.innerHTML = breakdownRows(ride.fare, { totalLabel: "Total Fare (you pay)" });
+      riderTrackFill.style.width = "0%";
+      riderTrackMarker.style.left = "0%";
+      riderLiveCoords.textContent = "Waiting for driver GPS…";
+    });
+
+    socket.on("location_update", (payload) => {
+      if (riderRide.hidden) return;
+      const pct = Math.round(Math.min(1, Math.max(0, payload.progress || 0)) * 100);
+      riderTrackFill.style.width = pct + "%";
+      riderTrackMarker.style.left = pct + "%";
+      const loc = payload.driverLocation;
+      riderLiveCoords.textContent = loc
+        ? "Live driver location: " + loc.lat.toFixed(4) + ", " + loc.lng.toFixed(4) +
+          " \u00b7 " + pct + "% of trip completed"
+        : "Waiting for driver GPS…";
+    });
+
+    socket.on("ride_complete", () => {
+      resetRiderView();
+      showToast("Ride ended. Thanks for trying FairRide!");
+    });
+
+    socket.on("driver_disconnected", (payload) => {
+      resetRiderView();
+      showToast(payload.message || "Your driver went offline.");
+    });
+
+    endRideRiderBtn.addEventListener("click", () => socket.emit("ride_complete"));
+
+    /* ---------- Driver panel ---------- */
+
+    goOnlineBtn.addEventListener("click", () => {
+      if (!driverOnline) {
+        socket.emit("driver_online", { name: driverNameInput.value.trim() || "Demo Driver" });
+      } else {
+        socket.emit("driver_offline");
+        setDriverOnline(false);
+        driverRide.hidden = true;
+      }
+    });
+
+    function setDriverOnline(online) {
+      driverOnline = online;
+      goOnlineBtn.classList.toggle("online", online);
+      goOnlineLabel.textContent = online ? "Online \u00b7 listening" : "Go Online";
+      driverStatus.textContent = online
+        ? "Waiting for a rider to request a ride…"
+        : "Offline — go online to receive ride requests.";
+    }
+
+    socket.on("driver_online", (ack) => {
+      setDriverOnline(true);
+      if (ack && typeof ack.driversOnline === "number") driverCount.textContent = ack.driversOnline;
+    });
+
+    socket.on("drivers_online", (payload) => {
+      driverCount.textContent = payload.count;
+    });
+
+    /* Incoming request -> modal */
+    let modalOpen = false;
+    socket.on("rider_request", (request) => {
+      if (!driverOnline || !requestModal.hidden) return;
+      modalOpen = true;
+      const fare = request.fare || {};
+      modalRoute.textContent = request.pickup + " \u2192 " + request.dropoff +
+        (fare.miles ? " (" + fare.miles + " mi)" : "");
+      modalFare.textContent = fare.fairFare != null ? fmt(fare.fairFare) : "—";
+      modalEarnings.textContent = fare.driverShare != null
+        ? "You earn " + fmt(fare.driverShare) + " (95%)"
+        : "";
+      requestModal.hidden = false;
+      acceptRideBtn.focus();
+    });
+
+    function closeModal() {
+      requestModal.hidden = true;
+      modalOpen = false;
+    }
+
+    declineRideBtn.addEventListener("click", closeModal);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modalOpen) closeModal();
+    });
+
+    acceptRideBtn.addEventListener("click", () => {
+      closeModal();
+      socket.emit("accept_ride");
+    });
+
+    socket.on("ride_taken", () => closeModal());
+
+    socket.on("ride_matched", (ride) => {
+      closeModal();
+      driverRide.hidden = false;
+      driverRideRoute.textContent = ride.pickup + " \u2192 " + ride.dropoff;
+      driverRideRows.innerHTML = breakdownRows(ride.fare, { totalLabel: "Rider pays" });
+      startGpsSimulation(ride.fare);
+    });
+
+    socket.on("ride_complete", () => {
+      stopGpsSimulation();
+      driverRide.hidden = true;
+      showToast("Ride ended. Driver earnings were simulated — no real payment.");
+    });
+
+    socket.on("rider_disconnected", (payload) => {
+      stopGpsSimulation();
+      driverRide.hidden = true;
+      showToast(payload.message || "Your rider disconnected.");
+    });
+
+    endRideDriverBtn.addEventListener("click", () => socket.emit("ride_complete"));
+
+    /* ---------- Simulated driver GPS ----------
+       The DRIVER browser pretends to be a GPS unit: every 2 seconds it
+       interpolates a position along the route (start -> end coordinates
+       from the fare quote) and streams it to the rider via the backend.
+       Replace with navigator.geolocation.watchPosition() for real use. */
+
+    function startGpsSimulation(fare) {
+      stopGpsSimulation();
+      if (!fare || !fare.start || !fare.end) return;
+      let progress = 0;
+      simTimer = setInterval(() => {
+        if (progress < 1) progress = Math.min(1, progress + 0.05);
+        const lat = fare.start.lat + (fare.end.lat - fare.start.lat) * progress;
+        const lng = fare.start.lng + (fare.end.lng - fare.start.lng) * progress;
+        socket.emit("location_update", { location: { lat, lng }, progress });
+      }, 2000);
+    }
+
+    function stopGpsSimulation() {
+      if (simTimer) { clearInterval(simTimer); simTimer = null; }
+    }
+
+    /* ---------- Connection status ---------- */
+
+    socket.on("connect", () => showToast("Connected to FairRide backend."));
+    socket.on("disconnect", () => showToast("Connection to backend lost — retrying…"));
+  </script>
+</body>
+</html>

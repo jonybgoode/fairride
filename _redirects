@@ -1,0 +1,6 @@
+# Netlify redirects for the FairRide frontend (drag-and-drop deploys read
+# this file automatically). Keep in sync with netlify.toml — replace the
+# placeholder with your live backend URL before deploying.
+
+/api/*        https://fairride-backend.onrender.com/api/:splat        200
+/socket.io/*  https://fairride-backend.onrender.com/socket.io/:splat  200
