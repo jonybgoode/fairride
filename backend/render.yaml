@@ -7,7 +7,14 @@
 #      Build Command:  npm install
 #      Start Command:  node server.js
 #      Instance Type:  Free
-#   4. The service will live at https://<service-name>.onrender.com
+#   4. New + -> PostgreSQL: create a database in the SAME region as the service
+#   5. Web Service -> Environment: add two variables, then save and deploy:
+#        DATABASE_URL  the database's Internal URL (Connect menu on the
+#                      database page) or External URL
+#        JWT_SECRET    a long random string, e.g.
+#                      node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+#   6. The service lives at https://<service-name>.onrender.com (Render adds
+#      a random suffix if the name is taken) and redeploys on every git push.
 #
 # Blueprint path: Render reads render.yaml from the repo root, so if this
 # file stays in backend/, use the manual path above — or move this file to
@@ -15,7 +22,7 @@
 
 services:
   - type: web
-    name: fairride-backend        # becomes https://fairride-backend.onrender.com
+    name: fairride-backend        # becomes https://fairride-backend-<suffix>.onrender.com
     runtime: node
     plan: free
     # rootDir: backend            # only needed if this file is at repo root
@@ -25,3 +32,15 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fairride-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+
+databases:
+  - name: fairride-db
+    plan: free
+    database: fairride      # optional, fixed once created
+    user: fairride          # optional, fixed once created

@@ -3,10 +3,20 @@
 /**
  * FairRide backend — P2P ride-matching MVP.
  *
- *   REST   : GET /api/fare?pickup=&dropoff=  (simulated fair-fare quote)
+ *   REST   : POST /api/register, POST /api/login   (accounts, PostgreSQL)
+ *            GET /api/fare?pickup=&dropoff=  (simulated fair-fare quote)
  *            GET /api/health
- *   Socket : driver_online, rider_request, accept_ride, ride_matched,
- *            location_update, ride_complete, driver_offline
+ *   Socket : every connection must present a valid JWT, see
+ *            io(url, { auth: { token } }) below. Events: driver_online,
+ *            rider_request, accept_ride, ride_matched, location_update,
+ *            ride_complete, driver_offline
+ *
+ * Environment:
+ *   DATABASE_URL  PostgreSQL connection string (needed for accounts)
+ *   JWT_SECRET    Secret used to sign login tokens (needed for accounts)
+ *   PORT          HTTP port (default 3000)
+ *
+ * The `users` table is created automatically at startup.
  *
  * Fares are SIMULATED (see calculateFairFare): a baseline "standard
  * rideshare" price, 20% cheaper for riders; drivers keep 95%, platform
@@ -29,10 +39,15 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
+const net = require("net");
 const { Server } = require("socket.io");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const { Pool } = require("pg");
 
 const app = express();
-app.use(cors()); // frontend runs from file:// or localhost:5173
+app.use(cors()); // the frontend is served from another origin (localhost in development, Netlify in production)
+app.use(express.json({ limit: "32kb" })); // request bodies for /api/register + /api/login
 
 const httpServer = http.createServer(app);
 // socket.io also serves its browser client at /socket.io/socket.io.js,
@@ -148,8 +163,247 @@ async function calculateFairFare(pickup, dropoff) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Accounts: PostgreSQL (pg) + JWT                                     */
+/* ------------------------------------------------------------------ */
+
+const JWT_SECRET = process.env.JWT_SECRET || null;
+const TOKEN_TTL = "7d";       // how long a login token stays valid
+const BCRYPT_ROUNDS = 10;
+const ROLES = ["rider", "driver"];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NAME_MAX = 60;
+const PASSWORD_MIN = 8;
+const PASSWORD_MAX_BYTES = 72; // bcrypt uses at most the first 72 bytes
+
+// pg lets sslmode=... inside the connection string override the `ssl`
+// option, so those parameters are removed from the URL and TLS is set here.
+const TLS_URL_PARAMS = ["ssl", "sslmode", "sslcert", "sslkey", "sslrootcert", "sslnegotiation"];
+
+const CREATE_USERS_TABLE = `
+  CREATE TABLE IF NOT EXISTS users (
+    id            SERIAL PRIMARY KEY,
+    name          TEXT NOT NULL,
+    email         TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role          TEXT NOT NULL CHECK (role IN ('rider', 'driver'))
+  )`;
+
+let pool = null;             // pg Pool; null when DATABASE_URL is missing or unusable
+let usersTableReady = false;
+let usersTablePromise = null;
+
+/**
+ * Asks the database server whether it speaks TLS — the same negotiation
+ * libpq uses for sslmode=prefer: send an SSLRequest, read one byte,
+ * "S" (yes) or "N" (no). Render's public hostname requires TLS while its
+ * internal hostname and a local database may not offer it, so the server
+ * is asked rather than guessed. pg has no fallback of its own.
+ */
+function serverHasTls(host, port, timeoutMs = 5000) {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host, port });
+    const finish = (answer) => {
+      socket.destroy();
+      resolve(answer);
+    };
+    socket.setTimeout(timeoutMs, () => finish(false));
+    socket.once("error", () => finish(false));
+    socket.once("close", () => finish(false)); // closed without answering
+    socket.once("connect", () => {
+      const request = Buffer.alloc(8);
+      request.writeInt32BE(8, 0);         // packet length
+      request.writeInt32BE(80877103, 4);  // SSLRequest
+      socket.write(request);
+    });
+    socket.once("data", (chunk) => finish(chunk[0] === 0x53)); // "S"
+  });
+}
+
+/**
+ * Opens the connection pool and creates the users table. Never throws:
+ * without a usable database the ride-matching API still starts, and
+ * /api/register + /api/login answer 503 until the problem is fixed.
+ */
+async function connectDatabase() {
+  if (!process.env.DATABASE_URL) {
+    console.warn("Accounts: DATABASE_URL is not set — /api/register and /api/login answer 503.");
+    return;
+  }
+
+  let connectionString = process.env.DATABASE_URL;
+  let host = "";
+  let port = 5432;
+  try {
+    const parsed = new URL(connectionString);
+    host = parsed.hostname;
+    port = Number(parsed.port) || port;
+    for (const key of TLS_URL_PARAMS) parsed.searchParams.delete(key);
+    connectionString = parsed.toString();
+  } catch (err) {
+    // Not a parseable URL — hand it to pg, which reports what is wrong.
+  }
+
+  const tls = host ? await serverHasTls(host, port) : false;
+  try {
+    pool = new Pool({
+      connectionString,
+      ssl: tls ? { rejectUnauthorized: false } : false,
+      max: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000
+    });
+    pool.on("error", (err) => console.error("Idle database client error:", err.message));
+    await ensureUsersTable();
+    console.log(`Accounts: PostgreSQL connected (${tls ? "TLS" : "no TLS"}) — users table ready.`);
+  } catch (err) {
+    // An unreachable database is retried on every request (see
+    // ensureUsersTable); only an unusable URL leaves the server without a pool.
+    console.error("Accounts: could not set up PostgreSQL —", err.message);
+    console.error("  /api/register and /api/login answer 503 until the database is reachable.");
+  }
+
+  if (!JWT_SECRET) {
+    console.warn("Accounts: JWT_SECRET is not set — logins are refused.");
+  }
+}
+
+/** Creates the users table if it does not exist yet. Safe to call often. */
+function ensureUsersTable() {
+  if (usersTableReady) return Promise.resolve();
+  if (!usersTablePromise) {
+    usersTablePromise = pool
+      .query(CREATE_USERS_TABLE)
+      .then(() => { usersTableReady = true; })
+      .finally(() => { usersTablePromise = null; });
+  }
+  return usersTablePromise;
+}
+
+/** Throws 503 unless this server can create and verify accounts. */
+function requireAccounts() {
+  const missing = [!pool && "DATABASE_URL", !JWT_SECRET && "JWT_SECRET"].filter(Boolean);
+  if (missing.length) {
+    throw new HttpError(503,
+      "Accounts aren't configured on this server: set " + missing.join(" and ") + ".");
+  }
+}
+
+/** Login token for a user row ({ id, name, role }). jwt.sign() needs `sub` as a string. */
+function signToken(user) {
+  return jwt.sign(
+    { sub: String(user.id), name: user.name, role: user.role },
+    JWT_SECRET,
+    { expiresIn: TOKEN_TTL }
+  );
+}
+
+/** Validates the body of /api/register: name, email, password, role. */
+function readProfile(body) {
+  if (!body || typeof body !== "object") {
+    throw new HttpError(400, "Send name, email, password and role as JSON.");
+  }
+  const name = String(body.name == null ? "" : body.name).trim().replace(/\s+/g, " ");
+  const email = String(body.email == null ? "" : body.email).trim().toLowerCase();
+  const password = String(body.password == null ? "" : body.password);
+  const role = String(body.role == null ? "" : body.role).trim().toLowerCase();
+  if (!name || name.length > NAME_MAX) {
+    throw new HttpError(400, `Enter your name (1 to ${NAME_MAX} characters).`);
+  }
+  if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+    throw new HttpError(400, "Enter a valid email address.");
+  }
+  if (password.length < PASSWORD_MIN) {
+    throw new HttpError(400, `Password must be at least ${PASSWORD_MIN} characters.`);
+  }
+  if (Buffer.byteLength(password, "utf8") > PASSWORD_MAX_BYTES) {
+    throw new HttpError(400, `Password is too long (${PASSWORD_MAX_BYTES} bytes maximum).`);
+  }
+  if (!ROLES.includes(role)) {
+    throw new HttpError(400, "Role must be either rider or driver.");
+  }
+  return { name, email, password, role };
+}
+
+/** Validates the body of /api/login: email, password. */
+function readLogin(body) {
+  if (!body || typeof body !== "object") {
+    throw new HttpError(400, "Send email and password as JSON.");
+  }
+  const email = String(body.email == null ? "" : body.email).trim().toLowerCase();
+  const password = String(body.password == null ? "" : body.password);
+  if (!EMAIL_PATTERN.test(email)) {
+    throw new HttpError(400, "Enter a valid email address.");
+  }
+  if (!password) {
+    throw new HttpError(400, "Enter your password.");
+  }
+  return { email, password };
+}
+
+/** Database errors carry a SQLSTATE or system code and mean "try later" (503). */
+function sendAccountError(res, route, err) {
+  console.error(`Account route ${route} failed:`, err.message);
+  if (typeof err.code !== "string") {
+    return res.status(500).json({ error: "Unexpected server error. Check the server console." });
+  }
+  return res.status(503).json({
+    error: "The account database is unavailable right now. Please try again shortly."
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* REST routes                                                         */
 /* ------------------------------------------------------------------ */
+
+app.post("/api/register", async (req, res) => {
+  try {
+    const { name, email, password, role } = readProfile(req.body);
+    requireAccounts();
+    await ensureUsersTable();
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const { rows } = await pool.query(
+      "INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) " +
+      "RETURNING id, name, email, role",
+      [name, email, passwordHash, role]
+    );
+    const user = rows[0];
+    return res.status(201).json({ token: signToken(user), user });
+  } catch (err) {
+    if (err instanceof HttpError) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    if (err.code === "23505") { // unique_violation: email already registered
+      return res.status(409).json({
+        error: "An account with that email already exists. Try logging in."
+      });
+    }
+    return sendAccountError(res, "/api/register", err);
+  }
+});
+
+app.post("/api/login", async (req, res) => {
+  try {
+    const { email, password } = readLogin(req.body);
+    requireAccounts();
+    await ensureUsersTable();
+    const { rows } = await pool.query(
+      "SELECT id, name, email, role, password_hash FROM users WHERE email = $1",
+      [email]
+    );
+    const user = rows[0];
+    const passwordMatches = user && await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatches) {
+      return res.status(401).json({ error: "Email or password is incorrect." });
+    }
+    delete user.password_hash;
+    return res.json({ token: signToken(user), user });
+  } catch (err) {
+    if (err instanceof HttpError) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    return sendAccountError(res, "/api/login", err);
+  }
+});
 
 app.get("/api/fare", async (req, res) => {
   const pickup = String(req.query.pickup || "").trim();
@@ -181,10 +435,25 @@ app.get("/api/fare", async (req, res) => {
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
+    accounts: Boolean(pool && JWT_SECRET),
     driversOnline: onlineDrivers.size,
     activeRides: activeRides.size,
     pendingRequests: pendingRequests.size
   });
+});
+
+// Body-parser rejections (malformed or oversized JSON) and anything
+// unexpected leave as JSON too, matching the { error } shape of the routes.
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err && err.status === 413) {
+    return res.status(413).json({ error: "Request body is too large." });
+  }
+  if (err && err.status && err.status < 500) {
+    return res.status(err.status).json({ error: "Request body must be valid JSON." });
+  }
+  console.error("Unexpected server error:", err);
+  return res.status(500).json({ error: "Unexpected server error. Check the server console." });
 });
 
 /* ------------------------------------------------------------------ */
@@ -208,16 +477,49 @@ function endRide(riderId, ride, reason) {
   io.to(ride.driverSocketId).emit("ride_complete", payload);
 }
 
+/**
+ * Every socket must present a valid login token:
+ *   io(url, { auth: { token } })
+ * The decoded account ({ id, name, role }) is attached to socket.data.user;
+ * connections without a valid token are refused.
+ */
+io.use((socket, next) => {
+  const refuse = (reason, message) => {
+    const err = new Error(message);
+    err.data = { code: "invalid_token", reason }; // reaches the client on connect_error
+    next(err);
+  };
+  if (!JWT_SECRET) {
+    const err = new Error("Accounts aren't configured on this server (JWT_SECRET is missing).");
+    err.data = { code: "auth_unavailable" };
+    return next(err);
+  }
+  let payload;
+  try {
+    payload = jwt.verify(socket.handshake.auth.token, JWT_SECRET);
+  } catch (err) {
+    return refuse(err && err.name === "TokenExpiredError" ? "expired" : "invalid",
+      "A valid login token is required to connect.");
+  }
+  if (typeof payload.sub !== "string" || typeof payload.name !== "string" || !ROLES.includes(payload.role)) {
+    return refuse("invalid", "A valid login token is required to connect.");
+  }
+  socket.data.user = { id: Number(payload.sub), name: payload.name, role: payload.role };
+  socket.data.role = payload.role;
+  next();
+});
+
 io.on("connection", (socket) => {
-  socket.data.role = null;
+  const user = socket.data.user; // set by the auth middleware above
 
   /* ---- driver events ---- */
 
   socket.on("driver_online", (payload = {}) => {
-    socket.data.role = "driver";
+    if (user.role !== "driver") return; // the role comes from the account
     onlineDrivers.set(socket.id, {
       socketId: socket.id,
-      name: String(payload.name || "Demo Driver").slice(0, 40),
+      userId: user.id,
+      name: user.name,
       location: payload.location || null,
       busy: false
     });
@@ -252,6 +554,7 @@ io.on("connection", (socket) => {
         riderSocketId: riderId,
         driverSocketId: socket.id,
         driver: { name: driver.name },
+        riderName: request.riderName,
         pickup: request.pickup,
         dropoff: request.dropoff,
         fare: request.fare,
@@ -291,12 +594,11 @@ io.on("connection", (socket) => {
   /* ---- rider events ---- */
 
   socket.on("rider_request", (payload = {}) => {
-    if (socket.data.role === "driver") return;
-    socket.data.role = "rider";
+    if (user.role !== "rider") return; // the role comes from the account
 
     if (onlineDrivers.size === 0) {
       socket.emit("no_drivers", {
-        message: "No drivers are online right now. Ask the driver tab to go online first."
+        message: "No drivers are online right now. Try again in a moment."
       });
       return;
     }
@@ -305,6 +607,7 @@ io.on("connection", (socket) => {
     // /api/fare). PRODUCTION: recompute server-side here.
     const request = {
       riderSocketId: socket.id,
+      riderName: user.name,
       pickup: String(payload.pickup || "").slice(0, 200),
       dropoff: String(payload.dropoff || "").slice(0, 200),
       fare: payload.fare || null,
@@ -356,6 +659,10 @@ io.on("connection", (socket) => {
     }
   });
 });
+
+// The HTTP server starts right away and the database is connected alongside
+// it (see connectDatabase), so a slow or missing database never blocks startup.
+connectDatabase();
 
 httpServer.listen(PORT, () => {
   console.log(`FairRide backend listening on http://localhost:${PORT}`);

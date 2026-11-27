@@ -56,6 +56,21 @@
       border-radius: 999px; padding: 2px 10px;
     }
 
+    /* Signed-in account bar (header, right side) */
+    .account-bar { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .account-bar[hidden] { display: none; }
+    .account-name {
+      font-weight: 600; font-size: 0.95rem;
+      max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .badge-role {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--blue-text); background: var(--blue-bg); border: 1px solid var(--blue-border);
+      border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+    }
+    .btn-logout { padding: 7px 14px; font-size: 0.85rem; white-space: nowrap; }
+    .btn-logout:disabled { opacity: 0.6; cursor: wait; }
+
     /* ---------- Cards ---------- */
     .card {
       background: var(--card); border: 1px solid var(--border);
@@ -63,18 +78,41 @@
       padding: 18px; margin-top: 16px;
     }
 
-    /* ---------- Role selector ---------- */
-    .role-selector { display: flex; gap: 10px; }
-    .role-btn {
+    /* ---------- Login / Sign up ---------- */
+    .auth-title { margin: 0 0 4px; font-size: 1.35rem; }
+    .auth-sub { margin: 0 0 16px; color: var(--muted); font-size: 0.95rem; }
+    .auth-tabs { display: flex; gap: 10px; margin-bottom: 18px; }
+    .auth-tab {
       flex: 1; font-family: inherit; font-size: 1rem; font-weight: 700;
       padding: 14px 10px; border-radius: 12px; cursor: pointer;
       border: 1.5px solid var(--border); background: #fff; color: var(--muted);
       transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     }
-    .role-btn[aria-pressed="true"] {
+    .auth-tab[aria-selected="true"] {
       background: var(--text); border-color: var(--text); color: #fff;
     }
-    .role-btn:focus-visible { outline: 2.5px solid #111; outline-offset: 2px; }
+    .auth-tab:focus-visible { outline: 2.5px solid #111; outline-offset: 2px; }
+    .auth-note { color: var(--muted); font-size: 0.8125rem; margin: 16px 0 0; }
+    .auth-loading { color: var(--muted); font-size: 0.8125rem; margin: 8px 0 0; text-align: center; }
+
+    /* ---------- Role picker (Sign Up) ---------- */
+    .role-fieldset { border: none; margin: 0 0 14px; padding: 0; min-width: 0; }
+    .role-fieldset legend { display: block; font-weight: 600; font-size: 0.875rem; margin-bottom: 6px; padding: 0; }
+    .role-selector { display: flex; gap: 10px; }
+    .role-btn {
+      flex: 1; position: relative; font-family: inherit; font-size: 1rem; font-weight: 700;
+      padding: 14px 10px; border-radius: 12px; cursor: pointer; text-align: center;
+      border: 1.5px solid var(--border); background: #fff; color: var(--muted);
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .role-btn input {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      margin: 0; opacity: 0; cursor: pointer;
+    }
+    .role-btn:has(input:checked) {
+      background: var(--text); border-color: var(--text); color: #fff;
+    }
+    .role-btn:has(input:focus-visible) { outline: 2.5px solid #111; outline-offset: 2px; }
 
     /* ---------- Form ---------- */
     .field { margin-bottom: 14px; }
@@ -87,6 +125,7 @@
     .field input.invalid { border-color: var(--error); }
     .field .error-text { display: none; color: var(--error); font-size: 0.8125rem; margin-top: 4px; }
     .field.has-error .error-text { display: block; }
+    .field-hint { color: var(--muted); font-size: 0.8125rem; margin: 4px 0 0; }
 
     .btn {
       font-size: 0.95rem; font-weight: 600; font-family: inherit;
@@ -101,6 +140,7 @@
     .btn-primary:disabled { background: #777; cursor: wait; }
     .btn-green { background: var(--green); color: #fff; width: 100%; }
     .btn-green:hover { background: #0e8749; }
+    .btn-green:disabled { background: #777; cursor: wait; }
     .btn-secondary { background: #fff; color: var(--text); border-color: var(--border); }
     .btn-secondary:hover { background: #f0f1f3; }
 
@@ -189,6 +229,7 @@
     }
     .toggle-online.online { background: var(--green); border-color: var(--green); color: #fff; }
     .toggle-online:focus-visible { outline: 2.5px solid #111; outline-offset: 2px; }
+    .toggle-online:disabled { opacity: 0.6; cursor: wait; }
     .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #b9bec7; }
     .toggle-online.online .status-dot { background: #7dffb0; animation: blink 1.6s ease infinite; }
     @keyframes blink { 50% { opacity: 0.35; } }
@@ -211,6 +252,7 @@
       max-width: 420px; width: 100%; padding: 20px;
     }
     .modal h3 { margin: 0 0 6px; font-size: 1.15rem; }
+    .modal .modal-rider { color: var(--blue-text); font-weight: 700; font-size: 0.95rem; margin: 0 0 4px; }
     .modal .modal-route { color: var(--muted); font-size: 0.9rem; margin: 0 0 12px; overflow-wrap: anywhere; }
     .modal .modal-fare { font-size: 1.6rem; font-weight: 800; color: var(--green); }
     .modal .modal-earnings { color: var(--green); font-weight: 700; font-size: 0.9rem; margin-bottom: 16px; }
@@ -249,130 +291,191 @@
     <div class="container">
       <h1 class="app-name">FairRide</h1>
       <span class="badge-demo">Demo</span>
+      <div class="account-bar" id="account-bar" hidden>
+        <span class="account-name" id="account-name"></span>
+        <span class="badge-role" id="account-role"></span>
+        <button type="button" class="btn btn-secondary btn-logout" id="logout-btn" disabled>Log Out</button>
+      </div>
     </div>
   </header>
 
   <main class="container">
 
-    <!-- Role selector -->
-    <section class="card" aria-label="Choose your role">
-      <div class="role-selector">
-        <button type="button" class="role-btn" id="role-rider" aria-pressed="true">I am a Rider</button>
-        <button type="button" class="role-btn" id="role-driver" aria-pressed="false">I am a Driver</button>
+    <!-- Login / Register (shown first) -->
+    <section class="card" id="auth-screen" aria-labelledby="auth-heading">
+      <h2 id="auth-heading" class="auth-title">Welcome to FairRide</h2>
+      <p class="auth-sub">Log in — or create an account — to request a ride or drive.</p>
+
+      <div class="auth-tabs" role="tablist" aria-label="Log in or sign up">
+        <button type="button" class="auth-tab" id="auth-tab-login" role="tab"
+                aria-selected="true" aria-controls="login-panel">Login</button>
+        <button type="button" class="auth-tab" id="auth-tab-signup" role="tab"
+                aria-selected="false" aria-controls="signup-panel" tabindex="-1">Sign Up</button>
       </div>
+
+      <div id="login-panel" role="tabpanel" aria-labelledby="auth-tab-login">
+        <form id="login-form" novalidate>
+          <div class="field" id="field-login-email">
+            <label for="login-email">Email</label>
+            <input id="login-email" type="email" autocomplete="email" placeholder="you@example.com" />
+            <p class="error-text" id="error-login-email"></p>
+          </div>
+          <div class="field" id="field-login-password">
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" autocomplete="current-password" placeholder="Your password" />
+            <p class="error-text" id="error-login-password"></p>
+          </div>
+          <button type="submit" class="btn btn-primary" id="login-btn" disabled>Log In</button>
+          <div class="form-error-summary" id="login-error" role="alert"></div>
+        </form>
+      </div>
+
+      <div id="signup-panel" role="tabpanel" aria-labelledby="auth-tab-signup" hidden>
+        <form id="signup-form" novalidate>
+          <div class="field" id="field-signup-name">
+            <label for="signup-name">Name</label>
+            <input id="signup-name" type="text" autocomplete="name" maxlength="60" placeholder="e.g. Alex Morgan" />
+            <p class="error-text" id="error-signup-name"></p>
+          </div>
+          <div class="field" id="field-signup-email">
+            <label for="signup-email">Email</label>
+            <input id="signup-email" type="email" autocomplete="email" placeholder="you@example.com" />
+            <p class="error-text" id="error-signup-email"></p>
+          </div>
+          <div class="field" id="field-signup-password">
+            <label for="signup-password">Password</label>
+            <input id="signup-password" type="password" autocomplete="new-password" placeholder="At least 8 characters" />
+            <p class="error-text" id="error-signup-password"></p>
+            <p class="field-hint">At least 8 characters.</p>
+          </div>
+          <fieldset class="role-fieldset">
+            <legend>I want to</legend>
+            <div class="role-selector">
+              <label class="role-btn"><input type="radio" name="signup-role" value="rider" checked />I am a Rider</label>
+              <label class="role-btn"><input type="radio" name="signup-role" value="driver" />I am a Driver</label>
+            </div>
+          </fieldset>
+          <button type="submit" class="btn btn-primary" id="signup-btn" disabled>Create Account</button>
+          <div class="form-error-summary" id="signup-error" role="alert"></div>
+        </form>
+      </div>
+
+      <p class="auth-note">Accounts are for this demo only — no payment details are collected.</p>
+      <p class="auth-loading" id="auth-loading" role="status">Connecting to the FairRide backend…</p>
     </section>
 
-    <!-- Rider panel -->
-    <section class="card" id="rider-panel" aria-labelledby="rider-heading">
-      <h2 id="rider-heading" class="visually-hidden">Rider tools</h2>
+    <!-- Rider / Driver dashboards (shown once signed in; the role comes from the account) -->
+    <div id="app" hidden>
+      <div class="results-error" id="app-error" role="alert" hidden></div>
 
-      <form id="rider-form" novalidate>
-        <div class="field" id="field-pickup">
-          <label for="pickup">Pickup address</label>
-          <input id="pickup" name="pickup" type="text" autocomplete="street-address"
-                 placeholder="e.g. 350 5th Ave, New York, NY" />
-          <p class="error-text" id="error-pickup"></p>
-        </div>
-        <div class="field" id="field-dropoff">
-          <label for="dropoff">Dropoff address</label>
-          <input id="dropoff" name="dropoff" type="text" autocomplete="street-address"
-                 placeholder="e.g. Grand Central Terminal, NY" />
-          <p class="error-text" id="error-dropoff"></p>
-        </div>
-        <button type="submit" class="btn btn-primary" id="get-fare-btn">Get Fair Fare</button>
-        <div class="form-error-summary" id="form-error-summary" role="alert"></div>
-      </form>
+      <!-- Rider panel -->
+      <section class="card" id="rider-panel" aria-labelledby="rider-heading">
+        <h2 id="rider-heading" class="visually-hidden">Rider tools</h2>
 
-      <!-- Fare quote -->
-      <div class="fare-result" id="fare-result" hidden aria-live="polite">
-        <p class="fare-route" id="fare-route"></p>
-        <div class="fare-top">
-          <span class="fare-price" id="fare-price"></span>
-          <span class="fare-baseline" id="fare-baseline"></span>
-          <span class="pill-save" id="fare-save"></span>
-        </div>
-        <p class="fare-miles" id="fare-miles"></p>
-        <div class="fare-rows" id="fare-rows"></div>
-        <div style="margin-top: 14px;">
-          <button type="button" class="btn btn-green" id="find-driver">Find a Driver</button>
-        </div>
-      </div>
+        <form id="rider-form" novalidate>
+          <div class="field" id="field-pickup">
+            <label for="pickup">Pickup address</label>
+            <input id="pickup" name="pickup" type="text" autocomplete="street-address"
+                   placeholder="e.g. 350 5th Ave, New York, NY" />
+            <p class="error-text" id="error-pickup"></p>
+          </div>
+          <div class="field" id="field-dropoff">
+            <label for="dropoff">Dropoff address</label>
+            <input id="dropoff" name="dropoff" type="text" autocomplete="street-address"
+                   placeholder="e.g. Grand Central Terminal, NY" />
+            <p class="error-text" id="error-dropoff"></p>
+          </div>
+          <button type="submit" class="btn btn-primary" id="get-fare-btn" disabled>Get Fair Fare</button>
+          <div class="form-error-summary" id="form-error-summary" role="alert"></div>
+        </form>
 
-      <!-- Searching -->
-      <div class="searching" id="searching" hidden>
-        <div class="radar" aria-hidden="true">
-          <span></span><span></span><span></span><span class="dot"></span>
+        <!-- Fare quote -->
+        <div class="fare-result" id="fare-result" hidden aria-live="polite">
+          <p class="fare-route" id="fare-route"></p>
+          <div class="fare-top">
+            <span class="fare-price" id="fare-price"></span>
+            <span class="fare-baseline" id="fare-baseline"></span>
+            <span class="pill-save" id="fare-save"></span>
+          </div>
+          <p class="fare-miles" id="fare-miles"></p>
+          <div class="fare-rows" id="fare-rows"></div>
+          <div style="margin-top: 14px;">
+            <button type="button" class="btn btn-green" id="find-driver">Find a Driver</button>
+          </div>
         </div>
-        <p class="searching-title">Searching for nearby drivers…</p>
-        <p class="searching-sub" id="searching-sub">Waiting for a driver to accept.</p>
-      </div>
 
-      <!-- Ride in progress (rider view) -->
-      <div class="ride-progress" id="rider-ride" hidden aria-live="polite">
-        <div class="ride-heading">
-          <span class="ride-driver" id="rider-driver-name"></span>
-          <span class="pill-live">Ride in progress</span>
+        <!-- Searching -->
+        <div class="searching" id="searching" hidden>
+          <div class="radar" aria-hidden="true">
+            <span></span><span></span><span></span><span class="dot"></span>
+          </div>
+          <p class="searching-title">Searching for nearby drivers…</p>
+          <p class="searching-sub" id="searching-sub">Waiting for a driver to accept.</p>
         </div>
-        <p class="ride-route" id="rider-ride-route"></p>
-        <div class="fare-rows" id="rider-ride-rows"></div>
-        <div class="track" aria-hidden="true">
-          <div class="track-fill" id="rider-track-fill"></div>
-          <div class="track-marker" id="rider-track-marker"></div>
+
+        <!-- Ride in progress (rider view) -->
+        <div class="ride-progress" id="rider-ride" hidden aria-live="polite">
+          <div class="ride-heading">
+            <span class="ride-driver" id="rider-driver-name"></span>
+            <span class="pill-live">Ride in progress</span>
+          </div>
+          <p class="ride-route" id="rider-ride-route"></p>
+          <div class="fare-rows" id="rider-ride-rows"></div>
+          <div class="track" aria-hidden="true">
+            <div class="track-fill" id="rider-track-fill"></div>
+            <div class="track-marker" id="rider-track-marker"></div>
+          </div>
+          <div class="track-labels"><span>Pickup</span><span>Dropoff</span></div>
+          <p class="live-coords" id="rider-live-coords">Waiting for driver GPS…</p>
+          <div style="margin-top: 14px;">
+            <button type="button" class="btn btn-secondary" id="end-ride-rider">End Ride (demo)</button>
+          </div>
         </div>
-        <div class="track-labels"><span>Pickup</span><span>Dropoff</span></div>
-        <p class="live-coords" id="rider-live-coords">Waiting for driver GPS…</p>
-        <div style="margin-top: 14px;">
-          <button type="button" class="btn btn-secondary" id="end-ride-rider">End Ride (demo)</button>
-        </div>
-      </div>
 
-      <div class="results-error" id="rider-error" role="alert" hidden></div>
-    </section>
+        <div class="results-error" id="rider-error" role="alert" hidden></div>
+      </section>
 
-    <!-- Driver panel -->
-    <section class="card" id="driver-panel" hidden aria-labelledby="driver-heading">
-      <h2 id="driver-heading" class="visually-hidden">Driver tools</h2>
+      <!-- Driver panel (no display-name input: the name comes from the account) -->
+      <section class="card" id="driver-panel" hidden aria-labelledby="driver-heading">
+        <h2 id="driver-heading" class="visually-hidden">Driver tools</h2>
 
-      <div class="field">
-        <label for="driver-name">Display name</label>
-        <input id="driver-name" type="text" value="Demo Driver" maxlength="40" />
-      </div>
-
-      <button type="button" class="toggle-online" id="go-online">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span id="go-online-label">Go Online</span>
-      </button>
-      <p class="driver-status" id="driver-status">Offline — go online to receive ride requests.</p>
-      <p class="driver-status"><span class="driver-count" id="driver-count">0</span> drivers online</p>
-
-      <!-- Ride in progress (driver view) -->
-      <div class="ride-progress" id="driver-ride" hidden aria-live="polite">
-        <div class="ride-heading">
-          <span class="ride-driver" id="driver-ride-title">Ride in progress</span>
-          <span class="pill-live">You're driving</span>
-        </div>
-        <p class="ride-route" id="driver-ride-route"></p>
-        <div class="fare-rows" id="driver-ride-rows"></div>
-        <p class="gps-note">
+        <button type="button" class="toggle-online" id="go-online" disabled>
           <span class="status-dot" aria-hidden="true"></span>
-          Simulated GPS is streaming to your rider every 2 seconds.
-        </p>
-        <div style="margin-top: 14px;">
-          <button type="button" class="btn btn-secondary" id="end-ride-driver">End Ride (demo)</button>
-        </div>
-      </div>
-    </section>
+          <span id="go-online-label">Go Online</span>
+        </button>
+        <p class="driver-status" id="driver-status">Offline — go online to receive ride requests.</p>
+        <p class="driver-status"><span class="driver-count" id="driver-count">0</span> drivers online</p>
 
-    <!-- Driver: incoming ride request modal -->
-    <div class="modal-backdrop" id="request-modal" hidden>
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <h3 id="modal-title">New ride request</h3>
-        <p class="modal-route" id="modal-route"></p>
-        <p class="modal-fare" id="modal-fare"></p>
-        <p class="modal-earnings" id="modal-earnings"></p>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="decline-ride">Decline</button>
-          <button type="button" class="btn btn-green" id="accept-ride">Accept Ride</button>
+        <!-- Ride in progress (driver view) -->
+        <div class="ride-progress" id="driver-ride" hidden aria-live="polite">
+          <div class="ride-heading">
+            <span class="ride-driver" id="driver-ride-title">Ride in progress</span>
+            <span class="pill-live">You're driving</span>
+          </div>
+          <p class="ride-route" id="driver-ride-route"></p>
+          <div class="fare-rows" id="driver-ride-rows"></div>
+          <p class="gps-note">
+            <span class="status-dot" aria-hidden="true"></span>
+            Simulated GPS is streaming to your rider every 2 seconds.
+          </p>
+          <div style="margin-top: 14px;">
+            <button type="button" class="btn btn-secondary" id="end-ride-driver">End Ride (demo)</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Driver: incoming ride request modal -->
+      <div class="modal-backdrop" id="request-modal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+          <h3 id="modal-title">New ride request</h3>
+          <p class="modal-rider" id="modal-rider"></p>
+          <p class="modal-route" id="modal-route"></p>
+          <p class="modal-fare" id="modal-fare"></p>
+          <p class="modal-earnings" id="modal-earnings"></p>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="decline-ride">Decline</button>
+            <button type="button" class="btn btn-green" id="accept-ride">Accept Ride</button>
+          </div>
         </div>
       </div>
     </div>
@@ -386,13 +489,13 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-  <!-- Backend origin selection + socket.io client loading:
-       1. window.FAIRRIDE_BACKEND_URL (set before this script) always wins,
-          e.g. "https://fairride-backend-4rsc.onrender.com"
-       2. Local development (localhost, 127.0.0.1, or file://): localhost:3000
-       3. Production: the live Render backend. The page connects to it
-          directly (client script, REST and WebSocket) — nothing is
-          proxied in front of it. -->
+  <!-- Backend origin selection + session check + socket.io client loading:
+        1. window.FAIRRIDE_BACKEND_URL (set before this script) always wins,
+           e.g. "https://fairride-backend-4rsc.onrender.com"
+        2. Local development (localhost, 127.0.0.1, or file://): localhost:3000
+        3. Production: the live Render backend. The page connects to it
+           directly (client script, REST and WebSocket) — nothing is
+           proxied in front of it. -->
   <script>
     "use strict";
     var FAIRRIDE_IS_DEV =
@@ -403,6 +506,57 @@
       window.FAIRRIDE_BACKEND_URL ||
       (FAIRRIDE_IS_DEV ? "http://localhost:3000" : "https://fairride-backend-4rsc.onrender.com");
     window.FAIRRIDE_API_BASE = BACKEND;
+
+    // JWT helpers. The token from /api/register or /api/login is kept in
+    // localStorage under "token"; its payload carries sub (user id), name,
+    // role and exp. Decoding here only picks the screen to show — the
+    // backend re-verifies the signature on every request.
+    window.FAIRRIDE_decodeJwt = function (raw) {
+      if (typeof raw !== "string") return null;
+      try {
+        var base64 = raw.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        var bytes = Uint8Array.from(atob(base64), function (ch) { return ch.charCodeAt(0); });
+        return JSON.parse(new TextDecoder().decode(bytes));
+      } catch (err) {
+        return null;
+      }
+    };
+    window.FAIRRIDE_readSession = function () {
+      var raw = null;
+      try { raw = localStorage.getItem("token"); } catch (err) { raw = null; }
+      if (!raw) return { token: null, user: null, reason: "missing" };
+      var payload = window.FAIRRIDE_decodeJwt(raw);
+      if (!payload || typeof payload.sub !== "string" || typeof payload.name !== "string" ||
+          (payload.role !== "rider" && payload.role !== "driver")) {
+        return { token: raw, user: null, reason: "invalid" };
+      }
+      if (typeof payload.exp !== "number" || payload.exp * 1000 <= Date.now()) {
+        return { token: raw, user: null, reason: "expired" };
+      }
+      return {
+        token: raw,
+        user: {
+          id: Number(payload.sub), name: payload.name, role: payload.role,
+          expiresAt: payload.exp * 1000
+        },
+        reason: null
+      };
+    };
+
+    // Paint the right screen now, before the blocking socket.io <script>
+    // load below: a signed-in user sees the dashboard immediately, even
+    // while a cold backend is still waking up.
+    (function revealInitialScreen() {
+      var session = window.FAIRRIDE_readSession();
+      if (!session.user) return; // login screen stays visible
+      document.getElementById("auth-screen").hidden = true;
+      document.getElementById("app").hidden = false;
+      document.getElementById("account-bar").hidden = false;
+      document.getElementById("account-name").textContent = session.user.name;
+      document.getElementById("account-role").textContent =
+        session.user.role === "driver" ? "Driver" : "Rider";
+    })();
+
     if (typeof io === "undefined") {
       // Load socket.io's browser client from the backend origin.
       // document.write during parsing is synchronous, so the script below
@@ -418,23 +572,46 @@
     /* =====================================================================
        FairRide frontend — P2P ride matching demo.
        Talks to the Express/socket.io backend (origin selected above).
+
+       Accounts: the JWT kept in localStorage is sent with every socket
+       handshake (io(..., { auth: { token } })); the backend refuses
+       sockets without a valid token. The rider/driver role comes from the
+       account, so there is no role switcher.
        ===================================================================== */
 
     const API_BASE = window.FAIRRIDE_API_BASE;
-
-    if (typeof io === "undefined") {
-      document.getElementById("rider-error").hidden = false;
-      document.getElementById("rider-error").textContent =
-        "Can't load the realtime client — is the backend running? " +
-        "Start it with: cd backend && node server.js";
-      throw new Error("socket.io client not loaded — backend offline?");
-    }
-    const socket = API_BASE ? io(API_BASE) : io();
+    const TOKEN_KEY = "token";
+    const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const WAKING_UP_HINT = window.FAIRRIDE_IS_DEV
+      ? "Start it with: cd backend && node server.js"
+      : "If it was idle, it is waking up — wait about a minute and try again.";
 
     /* ---------- DOM refs ---------- */
     const $ = (id) => document.getElementById(id);
-    const roleRiderBtn = $("role-rider");
-    const roleDriverBtn = $("role-driver");
+    const authScreen = $("auth-screen");
+    const authTabLogin = $("auth-tab-login");
+    const authTabSignup = $("auth-tab-signup");
+    const loginPanel = $("login-panel");
+    const signupPanel = $("signup-panel");
+    const authLoading = $("auth-loading");
+    const loginForm = $("login-form");
+    const loginEmail = $("login-email");
+    const loginPassword = $("login-password");
+    const loginBtn = $("login-btn");
+    const loginError = $("login-error");
+    const signupForm = $("signup-form");
+    const signupName = $("signup-name");
+    const signupEmail = $("signup-email");
+    const signupPassword = $("signup-password");
+    const signupRoleInputs = Array.from(document.querySelectorAll('input[name="signup-role"]'));
+    const signupBtn = $("signup-btn");
+    const signupError = $("signup-error");
+    const app = $("app");
+    const appError = $("app-error");
+    const accountBar = $("account-bar");
+    const accountName = $("account-name");
+    const accountRole = $("account-role");
+    const logoutBtn = $("logout-btn");
     const riderPanel = $("rider-panel");
     const driverPanel = $("driver-panel");
     const riderForm = $("rider-form");
@@ -461,16 +638,17 @@
     const riderLiveCoords = $("rider-live-coords");
     const endRideRiderBtn = $("end-ride-rider");
     const riderError = $("rider-error");
-    const driverNameInput = $("driver-name");
     const goOnlineBtn = $("go-online");
     const goOnlineLabel = $("go-online-label");
     const driverStatus = $("driver-status");
     const driverCount = $("driver-count");
     const driverRide = $("driver-ride");
+    const driverRideTitle = $("driver-ride-title");
     const driverRideRoute = $("driver-ride-route");
     const driverRideRows = $("driver-ride-rows");
     const endRideDriverBtn = $("end-ride-driver");
     const requestModal = $("request-modal");
+    const modalRider = $("modal-rider");
     const modalRoute = $("modal-route");
     const modalFare = $("modal-fare");
     const modalEarnings = $("modal-earnings");
@@ -479,11 +657,16 @@
     const toast = $("toast");
 
     /* ---------- State ---------- */
-    let role = "rider";
-    let currentFare = null;      // fare breakdown from /api/fare
+    let token = null;          // JWT sent with the socket handshake
+    let currentUser = null;    // { id, name, role } taken from the token
+    let socket = null;
+    let currentFare = null;    // fare breakdown from /api/fare
     let driverOnline = false;
-    let simTimer = null;         // driver GPS simulator interval
+    let simTimer = null;       // driver GPS simulator interval
     let toastTimer = null;
+    let expiryTimer = null;    // ends the session when the token expires
+    let manualDisconnect = false;
+    let modalOpen = false;
 
     /* ---------- Helpers ---------- */
 
@@ -496,15 +679,22 @@
       toastTimer = setTimeout(() => { toast.hidden = true; }, 4000);
     }
 
+    // The field wrapper is #field-<id>, its message #error-<id>.
     function setFieldError(which, message) {
-      $("field-" + which).classList.toggle("has-error", Boolean(message));
-      const input = which === "pickup" ? pickupInput : dropoffInput;
+      const field = $("field-" + which);
+      const input = field.querySelector("input");
+      field.classList.toggle("has-error", Boolean(message));
       input.classList.toggle("invalid", Boolean(message));
       input.setAttribute("aria-invalid", message ? "true" : "false");
       $("error-" + which).textContent = message || "";
     }
 
-    function clearFormErrors() {
+    function showSummary(summary, message) {
+      summary.textContent = message;
+      summary.classList.add("visible");
+    }
+
+    function clearRiderFormErrors() {
       setFieldError("pickup", "");
       setFieldError("dropoff", "");
       formErrorSummary.classList.remove("visible");
@@ -516,6 +706,16 @@
       riderError.hidden = false;
     }
 
+    function showAppError(message) {
+      appError.textContent = message;
+      appError.hidden = false;
+    }
+
+    function setBusy(button, busy, busyText, idleText) {
+      button.disabled = busy;
+      button.textContent = busy ? busyText : idleText;
+    }
+
     function breakdownRows(fare, opts = {}) {
       const totalLabel = opts.totalLabel || "Total Fare";
       return (
@@ -525,19 +725,246 @@
       );
     }
 
-    /* ---------- Role switching ---------- */
-
-    function setRole(next) {
-      role = next;
-      roleRiderBtn.setAttribute("aria-pressed", next === "rider" ? "true" : "false");
-      roleDriverBtn.setAttribute("aria-pressed", next === "driver" ? "true" : "false");
-      riderPanel.hidden = next !== "rider";
-      driverPanel.hidden = next !== "driver";
+    function selectedSignupRole() {
+      const checked = signupRoleInputs.find((input) => input.checked);
+      return checked ? checked.value : "";
     }
-    roleRiderBtn.addEventListener("click", () => setRole("rider"));
-    roleDriverBtn.addEventListener("click", () => setRole("driver"));
 
-    /* ---------- Rider: fare quote ---------- */
+    /* =====================================================================
+       Login / Register
+       ===================================================================== */
+
+    function selectAuthTab(which) {
+      const login = which === "login";
+      authTabLogin.setAttribute("aria-selected", login ? "true" : "false");
+      authTabSignup.setAttribute("aria-selected", login ? "false" : "true");
+      authTabLogin.tabIndex = login ? 0 : -1;
+      authTabSignup.tabIndex = login ? -1 : 0;
+      loginPanel.hidden = !login;
+      signupPanel.hidden = login;
+    }
+    [authTabLogin, authTabSignup].forEach((tab) => {
+      tab.addEventListener("click", () => {
+        selectAuthTab(tab === authTabLogin ? "login" : "signup");
+      });
+      tab.addEventListener("keydown", (e) => {
+        let target = null;
+        if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+          target = tab === authTabLogin ? authTabSignup : authTabLogin;
+        } else if (e.key === "Home") {
+          target = authTabLogin;
+        } else if (e.key === "End") {
+          target = authTabSignup;
+        }
+        if (!target) return;
+        e.preventDefault();
+        selectAuthTab(target === authTabLogin ? "login" : "signup");
+        target.focus();
+      });
+    });
+
+    async function authRequest(path, payload) {
+      let res;
+      try {
+        res = await fetch(API_BASE + path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        throw new Error("Can't reach the FairRide backend. " + WAKING_UP_HINT);
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Request failed (HTTP " + res.status + ").");
+      if (!data.token || !data.user) throw new Error("The backend sent an unexpected response.");
+      return data;
+    }
+
+    function saveSession(data) {
+      try {
+        localStorage.setItem(TOKEN_KEY, data.token);
+      } catch (err) {
+        throw new Error("Your browser is blocking local storage, so FairRide can't keep you logged in.");
+      }
+      enterApp(data.token, data.user);
+    }
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setFieldError("login-email", "");
+      setFieldError("login-password", "");
+      loginError.classList.remove("visible");
+      loginError.textContent = "";
+
+      const email = loginEmail.value.trim();
+      const password = loginPassword.value;
+      let invalid = false;
+      if (!email) { setFieldError("login-email", "Enter your email."); invalid = true; }
+      else if (!EMAIL_PATTERN.test(email)) { setFieldError("login-email", "Enter a valid email address."); invalid = true; }
+      if (!password) { setFieldError("login-password", "Enter your password."); invalid = true; }
+      if (invalid) return;
+
+      setBusy(loginBtn, true, "Logging in…", "Log In");
+      try {
+        const data = await authRequest("/api/login", { email, password });
+        loginPassword.value = "";
+        saveSession(data);
+      } catch (err) {
+        showSummary(loginError, err.message);
+      } finally {
+        setBusy(loginBtn, false, "Logging in…", "Log In");
+      }
+    });
+
+    signupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setFieldError("signup-name", "");
+      setFieldError("signup-email", "");
+      setFieldError("signup-password", "");
+      signupError.classList.remove("visible");
+      signupError.textContent = "";
+
+      const name = signupName.value.trim().replace(/\s+/g, " ");
+      const email = signupEmail.value.trim();
+      const password = signupPassword.value;
+      const role = selectedSignupRole();
+      let invalid = false;
+      if (!name) { setFieldError("signup-name", "Enter your name."); invalid = true; }
+      if (!email) { setFieldError("signup-email", "Enter an email address."); invalid = true; }
+      else if (!EMAIL_PATTERN.test(email)) { setFieldError("signup-email", "Enter a valid email address."); invalid = true; }
+      if (password.length < 8) { setFieldError("signup-password", "Use at least 8 characters."); invalid = true; }
+      if (!role) { showSummary(signupError, "Choose whether you want to ride or drive."); invalid = true; }
+      if (invalid) return;
+
+      setBusy(signupBtn, true, "Creating account…", "Create Account");
+      try {
+        const data = await authRequest("/api/register", { name, email, password, role });
+        signupPassword.value = "";
+        saveSession(data);
+      } catch (err) {
+        showSummary(signupError, err.message);
+      } finally {
+        setBusy(signupBtn, false, "Creating account…", "Create Account");
+      }
+    });
+
+    /* ---------- Session: enter / leave the app ---------- */
+
+    function enterApp(newToken, user) {
+      token = newToken;
+      currentUser = { id: user.id, name: user.name, role: user.role };
+
+      authScreen.hidden = true;
+      app.hidden = false;
+      appError.hidden = true;
+      accountBar.hidden = false;
+      accountName.textContent = currentUser.name;
+      accountRole.textContent = currentUser.role === "driver" ? "Driver" : "Rider";
+
+      // The account's role decides which dashboard exists for this user.
+      riderPanel.hidden = currentUser.role !== "rider";
+      driverPanel.hidden = currentUser.role !== "driver";
+
+      scheduleExpiry();
+      connectSocket();
+    }
+
+    function leaveApp(message) {
+      clearTimeout(expiryTimer);
+      expiryTimer = null;
+      if (socket) {
+        manualDisconnect = true;
+        socket.disconnect();
+        socket = null;
+      }
+      stopGpsSimulation();
+      resetRideViews();
+      currentFare = null;
+      fareResult.hidden = true;
+      riderError.hidden = true;
+      token = null;
+      currentUser = null;
+
+      app.hidden = true;
+      accountBar.hidden = true;
+      authScreen.hidden = false;
+      if (message) showSummary(loginError, message);
+    }
+
+    function scheduleExpiry() {
+      clearTimeout(expiryTimer);
+      expiryTimer = null;
+      const payload = window.FAIRRIDE_decodeJwt(token);
+      if (!payload || typeof payload.exp !== "number") return;
+      const msLeft = payload.exp * 1000 - Date.now();
+      if (msLeft <= 0) { onSessionExpired(); return; }
+      expiryTimer = setTimeout(onSessionExpired, Math.min(msLeft, 2147483647));
+    }
+
+    function onSessionExpired() {
+      localStorage.removeItem(TOKEN_KEY);
+      leaveApp("Your session expired. Please log in again.");
+    }
+
+    logoutBtn.addEventListener("click", () => {
+      // Clear the stored token and start fresh.
+      if (socket) {
+        manualDisconnect = true;
+        socket.disconnect();
+        socket = null;
+      }
+      stopGpsSimulation();
+      localStorage.removeItem(TOKEN_KEY);
+      location.reload();
+    });
+
+    /* ---------- Realtime connection ---------- */
+
+    function connectSocket() {
+      if (typeof io === "undefined") {
+        showAppError("Can't load the realtime client from the backend. " + WAKING_UP_HINT);
+        return;
+      }
+      // The token travels in the handshake; the server rejects the socket
+      // without a valid one and answers connect_error.
+      socket = io(API_BASE, { auth: { token } });
+      socket.on("connect", () => {
+        appError.hidden = true;
+        // A reconnect is a new socket on the server: re-register if needed.
+        if (driverOnline) socket.emit("driver_online");
+        showToast("Connected to FairRide backend.");
+      });
+      socket.on("disconnect", () => {
+        if (manualDisconnect) { manualDisconnect = false; return; }
+        // The server ends any active ride when a socket goes away.
+        stopGpsSimulation();
+        riderRide.hidden = true;
+        driverRide.hidden = true;
+        showToast("Connection to backend lost — retrying…");
+      });
+      socket.on("connect_error", (err) => {
+        const data = err && err.data;
+        if (data && data.code === "invalid_token") {
+          localStorage.removeItem(TOKEN_KEY);
+          leaveApp(data.reason === "expired"
+            ? "Your session expired. Please log in again."
+            : "Your login is no longer valid. Please log in again.");
+          return;
+        }
+        if (data && data.code === "auth_unavailable") {
+          showAppError(err.message || "Login isn't available on this server right now.");
+          return;
+        }
+        // Anything else (network, cold start) is transient: socket.io
+        // keeps retrying by itself, so the user stays signed in.
+        showAppError("Can't reach the FairRide backend yet — retrying automatically. " + WAKING_UP_HINT);
+      });
+      registerRideHandlers();
+    }
+
+    /* =====================================================================
+       Rider
+       ===================================================================== */
 
     riderForm.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -545,7 +972,7 @@
     });
 
     async function getFare() {
-      clearFormErrors();
+      clearRiderFormErrors();
       riderError.hidden = true;
 
       const pickup = pickupInput.value.trim();
@@ -578,7 +1005,7 @@
         currentFare = null;
         fareResult.hidden = true;
         showRiderError(err.message === "Failed to fetch"
-          ? "Can't reach the FairRide backend. Start it with: cd RideCompare/backend && node server.js"
+          ? "Can't reach the FairRide backend. " + WAKING_UP_HINT
           : err.message);
       } finally {
         getFareBtn.disabled = false;
@@ -599,11 +1026,9 @@
       fareRows.innerHTML = breakdownRows(fare);
     }
 
-    /* ---------- Rider: find a driver ---------- */
-
     findDriverBtn.addEventListener("click", () => {
       if (!currentFare) return;
-      clearFormErrors();
+      clearRiderFormErrors();
       riderError.hidden = true;
       fareResult.hidden = true;
       searching.hidden = false;
@@ -615,65 +1040,17 @@
       });
     });
 
-    socket.on("no_drivers", (payload) => {
-      searching.hidden = true;
-      fareResult.hidden = false;
-      showRiderError(payload.message || "No drivers are online right now.");
-    });
-
     function resetRiderView() {
       searching.hidden = true;
       riderRide.hidden = true;
       if (currentFare) fareResult.hidden = false;
     }
 
-    socket.on("ride_matched", (ride) => {
-      searching.hidden = true;
-      fareResult.hidden = true;
-      riderRide.hidden = false;
-      riderDriverName.textContent = "Driver: " + ride.driver.name;
-      riderRideRoute.textContent = ride.pickup + " \u2192 " + ride.dropoff;
-      riderRideRows.innerHTML = breakdownRows(ride.fare, { totalLabel: "Total Fare (you pay)" });
-      riderTrackFill.style.width = "0%";
-      riderTrackMarker.style.left = "0%";
-      riderLiveCoords.textContent = "Waiting for driver GPS…";
-    });
-
-    socket.on("location_update", (payload) => {
-      if (riderRide.hidden) return;
-      const pct = Math.round(Math.min(1, Math.max(0, payload.progress || 0)) * 100);
-      riderTrackFill.style.width = pct + "%";
-      riderTrackMarker.style.left = pct + "%";
-      const loc = payload.driverLocation;
-      riderLiveCoords.textContent = loc
-        ? "Live driver location: " + loc.lat.toFixed(4) + ", " + loc.lng.toFixed(4) +
-          " \u00b7 " + pct + "% of trip completed"
-        : "Waiting for driver GPS…";
-    });
-
-    socket.on("ride_complete", () => {
-      resetRiderView();
-      showToast("Ride ended. Thanks for trying FairRide!");
-    });
-
-    socket.on("driver_disconnected", (payload) => {
-      resetRiderView();
-      showToast(payload.message || "Your driver went offline.");
-    });
-
     endRideRiderBtn.addEventListener("click", () => socket.emit("ride_complete"));
 
-    /* ---------- Driver panel ---------- */
-
-    goOnlineBtn.addEventListener("click", () => {
-      if (!driverOnline) {
-        socket.emit("driver_online", { name: driverNameInput.value.trim() || "Demo Driver" });
-      } else {
-        socket.emit("driver_offline");
-        setDriverOnline(false);
-        driverRide.hidden = true;
-      }
-    });
+    /* =====================================================================
+       Driver
+       ===================================================================== */
 
     function setDriverOnline(online) {
       driverOnline = online;
@@ -684,29 +1061,15 @@
         : "Offline — go online to receive ride requests.";
     }
 
-    socket.on("driver_online", (ack) => {
-      setDriverOnline(true);
-      if (ack && typeof ack.driversOnline === "number") driverCount.textContent = ack.driversOnline;
-    });
-
-    socket.on("drivers_online", (payload) => {
-      driverCount.textContent = payload.count;
-    });
-
-    /* Incoming request -> modal */
-    let modalOpen = false;
-    socket.on("rider_request", (request) => {
-      if (!driverOnline || !requestModal.hidden) return;
-      modalOpen = true;
-      const fare = request.fare || {};
-      modalRoute.textContent = request.pickup + " \u2192 " + request.dropoff +
-        (fare.miles ? " (" + fare.miles + " mi)" : "");
-      modalFare.textContent = fare.fairFare != null ? fmt(fare.fairFare) : "—";
-      modalEarnings.textContent = fare.driverShare != null
-        ? "You earn " + fmt(fare.driverShare) + " (95%)"
-        : "";
-      requestModal.hidden = false;
-      acceptRideBtn.focus();
+    goOnlineBtn.addEventListener("click", () => {
+      if (!driverOnline) {
+        // No name in the payload: the server uses the signed-in account.
+        socket.emit("driver_online");
+      } else {
+        socket.emit("driver_offline");
+        setDriverOnline(false);
+        driverRide.hidden = true;
+      }
     });
 
     function closeModal() {
@@ -724,29 +1087,108 @@
       socket.emit("accept_ride");
     });
 
-    socket.on("ride_taken", () => closeModal());
-
-    socket.on("ride_matched", (ride) => {
-      closeModal();
-      driverRide.hidden = false;
-      driverRideRoute.textContent = ride.pickup + " \u2192 " + ride.dropoff;
-      driverRideRows.innerHTML = breakdownRows(ride.fare, { totalLabel: "Rider pays" });
-      startGpsSimulation(ride.fare);
-    });
-
-    socket.on("ride_complete", () => {
-      stopGpsSimulation();
-      driverRide.hidden = true;
-      showToast("Ride ended. Driver earnings were simulated — no real payment.");
-    });
-
-    socket.on("rider_disconnected", (payload) => {
-      stopGpsSimulation();
-      driverRide.hidden = true;
-      showToast(payload.message || "Your rider disconnected.");
-    });
-
     endRideDriverBtn.addEventListener("click", () => socket.emit("ride_complete"));
+
+    /* ---------- Socket handlers (registered on each new socket) ---------- */
+
+    function registerRideHandlers() {
+      // Rider
+      socket.on("no_drivers", (payload) => {
+        searching.hidden = true;
+        fareResult.hidden = false;
+        showRiderError(payload.message || "No drivers are online right now.");
+      });
+
+      socket.on("ride_matched", (ride) => {
+        if (currentUser.role === "driver") {
+          closeModal();
+          driverRide.hidden = false;
+          driverRideTitle.textContent = ride.riderName ? "Rider: " + ride.riderName : "Ride in progress";
+          driverRideRoute.textContent = ride.pickup + " \u2192 " + ride.dropoff;
+          driverRideRows.innerHTML = breakdownRows(ride.fare, { totalLabel: "Rider pays" });
+          startGpsSimulation(ride.fare);
+          return;
+        }
+        searching.hidden = true;
+        fareResult.hidden = true;
+        riderRide.hidden = false;
+        riderDriverName.textContent = "Driver: " + ride.driver.name;
+        riderRideRoute.textContent = ride.pickup + " \u2192 " + ride.dropoff;
+        riderRideRows.innerHTML = breakdownRows(ride.fare, { totalLabel: "Total Fare (you pay)" });
+        riderTrackFill.style.width = "0%";
+        riderTrackMarker.style.left = "0%";
+        riderLiveCoords.textContent = "Waiting for driver GPS…";
+      });
+
+      socket.on("location_update", (payload) => {
+        if (riderRide.hidden) return;
+        const pct = Math.round(Math.min(1, Math.max(0, payload.progress || 0)) * 100);
+        riderTrackFill.style.width = pct + "%";
+        riderTrackMarker.style.left = pct + "%";
+        const loc = payload.driverLocation;
+        riderLiveCoords.textContent = loc
+          ? "Live driver location: " + loc.lat.toFixed(4) + ", " + loc.lng.toFixed(4) +
+            " \u00b7 " + pct + "% of trip completed"
+          : "Waiting for driver GPS…";
+      });
+
+      socket.on("ride_complete", () => {
+        stopGpsSimulation();
+        if (currentUser.role === "driver") {
+          driverRide.hidden = true;
+          showToast("Ride ended. Driver earnings were simulated — no real payment.");
+        } else {
+          resetRiderView();
+          showToast("Ride ended. Thanks for trying FairRide!");
+        }
+      });
+
+      socket.on("driver_disconnected", (payload) => {
+        resetRiderView();
+        showToast(payload.message || "Your driver went offline.");
+      });
+
+      socket.on("rider_disconnected", (payload) => {
+        stopGpsSimulation();
+        driverRide.hidden = true;
+        showToast(payload.message || "Your rider disconnected.");
+      });
+
+      // Driver
+      socket.on("driver_online", (ack) => {
+        setDriverOnline(true);
+        if (ack && typeof ack.driversOnline === "number") driverCount.textContent = ack.driversOnline;
+      });
+
+      socket.on("drivers_online", (payload) => {
+        driverCount.textContent = payload.count;
+      });
+
+      socket.on("rider_request", (request) => {
+        if (!driverOnline || !requestModal.hidden) return;
+        modalOpen = true;
+        const fare = request.fare || {};
+        modalRider.textContent = request.riderName ? "Rider: " + request.riderName : "";
+        modalRoute.textContent = request.pickup + " \u2192 " + request.dropoff +
+          (fare.miles ? " (" + fare.miles + " mi)" : "");
+        modalFare.textContent = fare.fairFare != null ? fmt(fare.fairFare) : "—";
+        modalEarnings.textContent = fare.driverShare != null
+          ? "You earn " + fmt(fare.driverShare) + " (95%)"
+          : "";
+        requestModal.hidden = false;
+        acceptRideBtn.focus();
+      });
+
+      socket.on("ride_taken", () => closeModal());
+    }
+
+    function resetRideViews() {
+      searching.hidden = true;
+      riderRide.hidden = true;
+      driverRide.hidden = true;
+      closeModal();
+      setDriverOnline(false);
+    }
 
     /* ---------- Simulated driver GPS ----------
        The DRIVER browser pretends to be a GPS unit: every 2 seconds it
@@ -770,10 +1212,33 @@
       if (simTimer) { clearInterval(simTimer); simTimer = null; }
     }
 
-    /* ---------- Connection status ---------- */
+    /* ---------- Start ---------- */
 
-    socket.on("connect", () => showToast("Connected to FairRide backend."));
-    socket.on("disconnect", () => showToast("Connection to backend lost — retrying…"));
+    function start() {
+      const session = window.FAIRRIDE_readSession();
+
+      // The forms are disabled in the HTML until this script is running,
+      // so they can never submit natively (which would put a password in
+      // the page URL).
+      authLoading.hidden = true;
+      loginBtn.disabled = false;
+      signupBtn.disabled = false;
+      getFareBtn.disabled = false;
+      goOnlineBtn.disabled = false;
+      logoutBtn.disabled = false;
+
+      if (session.user) {
+        enterApp(session.token, session.user);
+        return;
+      }
+      // No usable token: stay on the login screen.
+      if (session.token) localStorage.removeItem(TOKEN_KEY);
+      if (session.reason === "expired") {
+        showSummary(loginError, "Your session expired. Please log in again.");
+      }
+    }
+
+    start();
   </script>
 </body>
 </html>
