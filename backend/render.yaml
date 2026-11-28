@@ -1,15 +1,13 @@
 # Render.com deployment spec for the FairRide backend.
 #
-# DEMO CREDENTIALS: DATABASE_URL and JWT_SECRET below are the real values for
-# the demo database, committed on purpose for this demo project. The URL uses
-# Render's INTERNAL hostname, so it only works from a Render service in the
-# same region as that database (not from a laptop — use the database's
-# External URL in backend/.env for local runs).
+# SECRETS ARE NOT STORED IN THIS REPOSITORY. The live backend reads
+# DATABASE_URL and JWT_SECRET from the Render dashboard
+# (service > Environment), which is where they are managed.
 #
 # HOW RENDER APPLIES THIS FILE: only through a Blueprint (New > Blueprint).
 # The live backend was created as a regular Web Service, which ignores this
-# file and reads its environment variables from the dashboard
-# (service > Environment). A git push alone does not apply the values below.
+# file and reads its environment variables from the dashboard. A git push
+# alone never applies the values below.
 #
 # Manual path (recommended for this repo layout):
 #   1. Render dashboard -> New + -> Web Service
@@ -19,13 +17,16 @@
 #      Start Command:  node server.js
 #      Instance Type:  Free
 #   4. New + -> PostgreSQL: create a database in the SAME region as the service
-#   5. Web Service -> Environment: add DATABASE_URL and JWT_SECRET (values
-#      below), then save and deploy
+#   5. Web Service -> Environment: add DATABASE_URL (the database's Internal
+#      URL, from its Connect menu) and JWT_SECRET (any long random string),
+#      then save and deploy
 #   6. The service lives at https://<service-name>.onrender.com (Render adds
 #      a random suffix if the name is taken) and redeploys on every git push.
 #
 # Blueprint path: New > Blueprint -> connect this repository and set the
 # Blueprint Path to backend/render.yaml. Only a Blueprint applies this file.
+# It asks for DATABASE_URL in the dashboard (sync: false) and creates
+# JWT_SECRET itself (generateValue: true).
 
 services:
   - type: web
@@ -40,6 +41,6 @@ services:
       - key: NODE_VERSION
         value: "22"
       - key: DATABASE_URL
-        value: postgresql://fairride_db_user:AuM4zFBkol7k0T5YR012uCcqTPNAwmMu@dpg-dc527s49v7es738t4ktg-a/fairride_db
+        sync: false               # entered in the dashboard, never committed
       - key: JWT_SECRET
-        value: 05bdc86ce0c8b33a465c676d8f17f8f81e7494a8b95114fcf636b2fae4cc2a0fb49545228dc763b8ea0f076701971f14
+        generateValue: true       # Render creates a random secret
